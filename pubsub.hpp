@@ -30,13 +30,13 @@ private:
 
 class Subscriber {
 public:    
-    virtual void print(const Task& task) = 0;
+    virtual void print(const Task& task) const = 0;
     virtual ~Subscriber() = default;
 };
 
 class ConsolePrinter : public Subscriber {
 public:    
-    void print(const Task& task) override {
+    void print(const Task& task) const override {
         auto data = task.getData();
         for(const auto& figure : data) {
             figure->Print(std::cout);
@@ -46,7 +46,7 @@ public:
 
 class FilePrinter : public Subscriber {
 public:
-    void print(const Task& task) override {
+    void print(const Task& task) const override {
         auto data = task.getData();
         std::ofstream os(std::to_string(rand() % 1337) + ".txt");
         if(os.bad()) {
