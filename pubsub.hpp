@@ -49,6 +49,9 @@ public:
     void print(const Task& task) override {
         auto data = task.getData();
         std::ofstream os(std::to_string(rand() % 1337) + ".txt");
+        if(os.bad()) {
+            std::cout << "Couldn't open file\n"; 
+        }
         for(const auto& figure : data) {
             figure->Print(os);
         }
