@@ -93,7 +93,6 @@ int main(int argc, char** argv) {
                 std::unique_lock<std::mutex> lock(readMutex);
                 while(!done) {
                     var.wait(lock);
-                    std::cout << "Stuck here" << std::endl;
                 }
                 done = false;
                 figures.resize(0);
