@@ -6,11 +6,9 @@
 #include "hexagon.hpp"
 #include "pentagon.hpp"
 
-std::mutex queueMutex;
 std::mutex readMutex;
-std::condition_variable var;
-bool done = false;
-unsigned bufferSize;
+std::condition_variable var1;
+std::condition_variable var2;
 
 class ThreadFunc {
 public:
@@ -21,9 +19,24 @@ public:
         tasks.push(task);
     }
 
+    void startWorking() {
+        working = true;
+    }
+
+    void stopWorking() {
+        working = false;
+    }
+
+    bool isWorking() {
+        return working;
+    }
+
     void operator()() {
         while(true) {
             std::unique_lock<std::mutex> mainLock(readMutex);
+            while(!working) {
+                var2.wait(mainLock);
+            }
             if(!tasks.empty()) {
                 {
                     std::lock_guard<std::mutex> lock(queueMutex);
@@ -34,19 +47,22 @@ public:
                     } else {
                         taskChanel.notify(currentTask);
                     }
-                    done = true;
-                    var.notify_one();
+                    this->stopWorking();
+                    var1.notify_one();
                 }
             }
 
         }
     }
 private:
+    std::mutex queueMutex;
     std::queue<Task> tasks;
     TaskChanel taskChanel;
+    bool working = false;
 };
 
 int main(int argc, char** argv) {
+    unsigned bufferSize;
     if(argc != 2) {
         std::cout << "Did this so argc wouldn't be highlited red/check your input" << std::endl;
         return -1;
@@ -69,6 +85,8 @@ int main(int argc, char** argv) {
     while(std::cin >> command) {
         if(command == "exit") {
             func.addTask({TaskType::exit, figures});
+            func.startWorking();
+            var2.notify_one();
             break;
         } else if(command == "add") {
             std::shared_ptr<Figure> f;
@@ -90,11 +108,12 @@ int main(int argc, char** argv) {
             }
             if(figures.size() == bufferSize) {
                 func.addTask({TaskType::print, figures});
+                func.startWorking();
+                var2.notify_one();
                 std::unique_lock<std::mutex> lock(readMutex);
-                while(!done) {
-                    var.wait(lock);
+                while(func.isWorking()) {
+                    var1.wait(lock);
                 }
-                done = false;
                 figures.resize(0);
             }
         } else {
