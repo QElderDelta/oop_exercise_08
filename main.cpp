@@ -6,13 +6,10 @@
 #include "hexagon.hpp"
 #include "pentagon.hpp"
 
-std::mutex readMutex;
-std::condition_variable var1;
-std::condition_variable var2;
 
 class ThreadFunc {
 public:
-    ThreadFunc(const TaskChanel& taskChanel) : taskChanel(taskChanel){};
+    ThreadFunc(const TaskChanel& taskChanel) : taskChanel(taskChanel) {};
 
     void addTask(const Task& task) {
         std::lock_guard<std::mutex> lock(queueMutex);
@@ -29,6 +26,18 @@ public:
 
     bool isWorking() {
         return working;
+    }
+
+    std::condition_variable& getVar1() {
+        return var1;
+    }
+    
+    std::condition_variable& getVar2() {
+        return var2;
+    }
+
+    std::mutex& getReadMutex() {
+        return readMutex;
     }
 
     void operator()() {
@@ -55,9 +64,12 @@ public:
         }
     }
 private:
+    TaskChanel taskChanel;
+    std::mutex readMutex;
+    std::condition_variable var1;
+    std::condition_variable var2;
     std::mutex queueMutex;
     std::queue<Task> tasks;
-    TaskChanel taskChanel;
     bool working = false;
 };
 
@@ -86,7 +98,7 @@ int main(int argc, char** argv) {
         if(command == "exit") {
             func.addTask({TaskType::exit, figures});
             func.startWorking();
-            var2.notify_one();
+            func.getVar2().notify_one();
             break;
         } else if(command == "add") {
             std::shared_ptr<Figure> f;
@@ -109,10 +121,10 @@ int main(int argc, char** argv) {
             if(figures.size() == bufferSize) {
                 func.addTask({TaskType::print, figures});
                 func.startWorking();
-                var2.notify_one();
-                std::unique_lock<std::mutex> lock(readMutex);
+                func.getVar2().notify_one();
+                std::unique_lock<std::mutex> lock(func.getReadMutex());
                 while(func.isWorking()) {
-                    var1.wait(lock);
+                    func.getVar1().wait(lock);
                 }
                 figures.resize(0);
             }
